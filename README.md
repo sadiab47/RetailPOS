@@ -1,32 +1,67 @@
 # RetailPOS
 
-A modern Point of Sale (POS) system built for retailers.
+RetailPOS is a modern, full-stack point-of-sale platform for retail businesses. It combines a Next.js frontend with a NestJS backend, alongside database design, API documentation, and deployment guidance for a production-ready foundation.
 
-## Features
-- Product Management
-- Inventory Management
-- Barcode Scanner Support
-- Sales & Billing
-- Thermal Receipt Printing
-- Customer Management
-- Supplier Management
-- Sales Reports
-- User Roles
-- Dashboard
+## Overview
+
+RetailPOS is designed to support the core retail workflow:
+- Product and inventory management
+- Authentication and role-based access
+- Point-of-sale operations and billing
+- Customer, supplier, and reporting modules
+- Local and production deployment guidance
 
 ## Tech Stack
-- Frontend: React / Next.js
-- Backend: NestJS
-- Database: MySQL
-- ORM: Prisma
-- Authentication: JWT
-- Receipt Printing: Thermal Printer
 
-## Project Status
-🚧 Under Development
+- Frontend: Next.js, React, TypeScript, Tailwind CSS
+- Backend: NestJS, TypeScript
+- Database: MySQL / SQL schema-based design
+- Documentation: Markdown-based architecture and API docs
 
 ## Repository Structure
-- frontend/ - Next.js frontend
-- backend/ - NestJS backend
-- database/ - SQL schema and seed data
-- docs/ - Project documentation
+
+- apps/api — NestJS backend application
+- apps/web — Next.js frontend application
+- database — SQL schema and seed data
+- docs — architecture, requirements, API, deployment, and testing documentation
+
+## Getting Started
+
+### Prerequisites
+- Node.js 20+
+- npm 10+
+
+### Backend
+```bash
+cd apps/api
+npm install
+npm run start:dev
+```
+
+### Frontend
+```bash
+cd apps/web
+npm install
+npm run dev
+```
+
+## Documentation
+
+The project documentation is organized under the docs directory:
+- [docs/README.md](docs/README.md)
+- [docs/architecture/SYSTEM_ARCHITECTURE.md](docs/architecture/SYSTEM_ARCHITECTURE.md)
+- [docs/requirements/SRS.md](docs/requirements/SRS.md)
+- [docs/api/API_OVERVIEW.md](docs/api/API_OVERVIEW.md)
+- [docs/deployment/LOCAL_SETUP.md](docs/deployment/LOCAL_SETUP.md)
+
+## Contributing
+
+Contributions are welcome. Please review [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) before opening a pull request.
+
+## Security
+
+Please review [SECURITY.md](SECURITY.md) for the supported reporting process and security expectations.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
