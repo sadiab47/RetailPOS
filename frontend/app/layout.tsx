@@ -2,7 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Retail POS',
+  title: 'RetailPOS',
   description: 'Modern retail point of sale experience',
 };
 
