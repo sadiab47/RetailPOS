@@ -64,4 +64,11 @@ Please review [SECURITY.md](SECURITY.md) for the supported reporting process and
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+RetailPOS is distributed under the MIT License. The full text is available in [LICENSE](LICENSE).
+
+### What this means
+- You may use, copy, modify, and distribute the software
+- You may include it in commercial and non-commercial projects
+- The license requires that the original copyright and permission notice remain intact
+
+For a full legal summary, please review the license file in this repository.
