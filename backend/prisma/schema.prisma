@@ -21,6 +21,7 @@ model User {
   createdReturns       SalesReturn[]
   shifts               CashShift[]
   createdMovements     CashMovement[]
+  auditLogs            AuditLog[]
 
   @@map("users")
 }
@@ -286,4 +287,22 @@ model CashMovement {
   createdAt     DateTime  @default(now()) @map("created_at")
 
   @@map("cash_movements")
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  requestId  String?  @map("request_id")
+  userId     Int?     @map("user_id")
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  entityType String   @map("entity_type")
+  entityId   Int?     @map("entity_id")
+  action     String
+  module     String
+  oldValues  String?  @map("old_values") @db.Text
+  newValues  String?  @map("new_values") @db.Text
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
 }

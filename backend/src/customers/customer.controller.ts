@@ -3,16 +3,31 @@ import { CustomerService } from './customer.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { AuthGuard } from '../auth.guard';
+import { AuditService } from '../audit/audit.service';
 
 @Controller('customers')
 @UseGuards(AuthGuard)
 export class CustomerController {
-  constructor(private readonly customerService: CustomerService) {}
+  constructor(
+    private readonly customerService: CustomerService,
+    private readonly auditService: AuditService
+  ) {}
 
   @Post()
-  create(@Body() dto: CreateCustomerDto, @Req() req: any) {
+  async create(@Body() dto: CreateCustomerDto, @Req() req: any) {
     const userId = req.user?.id;
-    return this.customerService.createCustomer(dto, userId);
+    const customer = await this.customerService.createCustomer(dto, userId);
+    await this.auditService.logAction(
+      userId || null,
+      'CUSTOMER',
+      customer.id,
+      'CREATE',
+      'CUSTOMER',
+      null,
+      customer,
+      req
+    );
+    return customer;
   }
 
   @Get()
@@ -45,12 +60,38 @@ export class CustomerController {
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateCustomerDto) {
-    return this.customerService.updateCustomer(Number(id), dto);
+  async update(@Param('id') id: string, @Body() dto: UpdateCustomerDto, @Req() req: any) {
+    const userId = req.user?.id;
+    const oldCustomer = await this.customerService.getCustomerById(Number(id));
+    const customer = await this.customerService.updateCustomer(Number(id), dto);
+    await this.auditService.logAction(
+      userId || null,
+      'CUSTOMER',
+      customer.id,
+      'UPDATE',
+      'CUSTOMER',
+      oldCustomer,
+      customer,
+      req
+    );
+    return customer;
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.customerService.deleteCustomer(Number(id));
+  async remove(@Param('id') id: string, @Req() req: any) {
+    const userId = req.user?.id;
+    const oldCustomer = await this.customerService.getCustomerById(Number(id));
+    const res = await this.customerService.deleteCustomer(Number(id));
+    await this.auditService.logAction(
+      userId || null,
+      'CUSTOMER',
+      Number(id),
+      'DELETE',
+      'CUSTOMER',
+      oldCustomer,
+      null,
+      req
+    );
+    return res;
   }
 }

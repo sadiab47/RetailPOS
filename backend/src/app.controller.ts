@@ -14,10 +14,15 @@ import {
   CreatePurchaseOrderDto
 } from './inventory.dto';
 import { CreateSaleDto } from './sales.dto';
+import { AuditService } from './audit/audit.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService, private readonly authService: AuthService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly authService: AuthService,
+    private readonly auditService: AuditService
+  ) {}
 
   @Get()
   getHello(): string {
@@ -29,15 +34,42 @@ export class AppController {
   // ==========================================
 
   @Post('auth/login')
-  login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(@Body() loginDto: LoginDto, @Req() req: any) {
+    const res = await this.authService.login(loginDto);
+    if (res.success && res.user) {
+      await this.auditService.logAction(
+        res.user.id,
+        'USER',
+        res.user.id,
+        'LOGIN',
+        'AUTH',
+        null,
+        { email: res.user.email },
+        req
+      );
+    }
+    return res;
   }
 
   @UseGuards(AuthGuard, RolesGuard)
   @Roles('admin')
   @Post('auth/register')
-  register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
+  async register(@Body() registerDto: RegisterDto, @Req() req: any) {
+    const res = await this.authService.register(registerDto);
+    const actorId = req.user?.id;
+    if (res.success && res.user) {
+      await this.auditService.logAction(
+        actorId || null,
+        'USER',
+        res.user.id,
+        'CREATE',
+        'AUTH',
+        null,
+        { email: res.user.email, name: res.user.name, role: res.user.role },
+        req
+      );
+    }
+    return res;
   }
 
   @Post('auth/refresh')
@@ -138,24 +170,60 @@ export class AppController {
   @UseGuards(AuthGuard, RolesGuard)
   @Roles('admin', 'manager')
   @Post('products')
-  createProduct(@Body() createProductDto: CreateProductDto, @Req() req: any) {
+  async createProduct(@Body() createProductDto: CreateProductDto, @Req() req: any) {
     const userId = req.user?.id;
-    return this.appService.createProduct(createProductDto, userId);
+    const product = await this.appService.createProduct(createProductDto, userId);
+    await this.auditService.logAction(
+      userId || null,
+      'PRODUCT',
+      product.id,
+      'CREATE',
+      'INVENTORY',
+      null,
+      product,
+      req
+    );
+    return product;
   }
 
   @UseGuards(AuthGuard, RolesGuard)
   @Roles('admin', 'manager')
   @Put('products/:id')
-  updateProduct(@Param('id') id: string, @Body() dto: UpdateProductDto, @Req() req: any) {
+  async updateProduct(@Param('id') id: string, @Body() dto: UpdateProductDto, @Req() req: any) {
     const userId = req.user?.id;
-    return this.appService.updateProduct(Number(id), dto, userId);
+    const oldProduct = await this.appService.getProductById(Number(id));
+    const product = await this.appService.updateProduct(Number(id), dto, userId);
+    await this.auditService.logAction(
+      userId || null,
+      'PRODUCT',
+      product.id,
+      'UPDATE',
+      'INVENTORY',
+      oldProduct,
+      product,
+      req
+    );
+    return product;
   }
 
   @UseGuards(AuthGuard, RolesGuard)
   @Roles('admin', 'manager')
   @Delete('products/:id')
-  deleteProduct(@Param('id') id: string) {
-    return this.appService.deleteProduct(Number(id));
+  async deleteProduct(@Param('id') id: string, @Req() req: any) {
+    const userId = req.user?.id;
+    const oldProduct = await this.appService.getProductById(Number(id));
+    const res = await this.appService.deleteProduct(Number(id));
+    await this.auditService.logAction(
+      userId || null,
+      'PRODUCT',
+      Number(id),
+      'DELETE',
+      'INVENTORY',
+      oldProduct,
+      null,
+      req
+    );
+    return res;
   }
 
   // ==========================================

@@ -1,4 +1,5 @@
 SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS audit_logs;
 DROP TABLE IF EXISTS cash_movements;
 DROP TABLE IF EXISTS cash_shifts;
 DROP TABLE IF EXISTS cash_registers;
@@ -244,3 +245,19 @@ CREATE TABLE IF NOT EXISTS cash_movements (
 
 -- Seed default register
 INSERT INTO cash_registers (id, name, status) VALUES (1, 'Main Register', 'ACTIVE') ON DUPLICATE KEY UPDATE name=name;
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    request_id VARCHAR(100) NULL,
+    user_id INT NULL,
+    entity_type VARCHAR(100) NOT NULL,
+    entity_id INT NULL,
+    action VARCHAR(100) NOT NULL,
+    module VARCHAR(100) NOT NULL,
+    old_values JSON NULL,
+    new_values JSON NULL,
+    ip_address VARCHAR(45) NULL,
+    user_agent VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
