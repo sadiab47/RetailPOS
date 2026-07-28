@@ -48,6 +48,13 @@ export default function PosTab() {
   const [completedInvoice, setCompletedInvoice] = useState<InvoiceDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Customer Selection
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [showCustSuggestions, setShowCustSuggestions] = useState(false);
+  const custSuggestionsRef = useRef<HTMLDivElement>(null);
+
   // Search and Suggestions
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -64,6 +71,35 @@ export default function PosTab() {
 
   useEffect(() => {
     loadProducts();
+  }, []);
+
+  const loadCustomers = async () => {
+    if (customerSearch.trim() === '') {
+      setCustomers([]);
+      return;
+    }
+    const res = await fetchWithAuth(`/customers?search=${encodeURIComponent(customerSearch)}`);
+    if (res.ok) {
+      setCustomers(await res.json());
+    }
+  };
+
+  useEffect(() => {
+    const delayDebounce = setTimeout(() => {
+      loadCustomers();
+    }, 300);
+    return () => clearTimeout(delayDebounce);
+  }, [customerSearch]);
+
+  // Click outside listener for customer suggestions
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (custSuggestionsRef.current && !custSuggestionsRef.current.contains(event.target as Node)) {
+        setShowCustSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   // Click outside suggestions dropdown to close it
@@ -203,7 +239,8 @@ export default function PosTab() {
     }
 
     const payload = {
-      customerName,
+      customerId: selectedCustomer?.id || null,
+      customerName: selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName || ''}`.trim() : customerName,
       paymentMethod,
       discount,
       tax,
@@ -231,6 +268,8 @@ export default function PosTab() {
       setDiscountInput('0');
       setTaxInput('0');
       setCustomerName('Walk-in Customer');
+      setSelectedCustomer(null);
+      setCustomerSearch('');
       loadProducts(); // refresh stock numbers
     } catch (err: any) {
       setError(err.message);
@@ -345,8 +384,72 @@ export default function PosTab() {
         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl space-y-4">
           <h3 className="text-lg font-semibold text-slate-100 border-b border-slate-800 pb-2">Checkout Details</h3>
           <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1">Customer Name</label>
-            <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 text-sm" />
+            <label className="block text-sm font-medium text-slate-400 mb-1">Customer Selection</label>
+            {selectedCustomer ? (
+              <div className="flex items-center justify-between rounded-lg border border-emerald-500 bg-emerald-500/10 p-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-100">
+                    {selectedCustomer.firstName} {selectedCustomer.lastName || ''}
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    Code: {selectedCustomer.customerCode} | Loyalty Pts: {selectedCustomer.loyaltyPoints}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCustomer(null)}
+                  className="text-xs text-red-400 hover:text-red-300 font-semibold"
+                >
+                  Clear
+                </button>
+              </div>
+            ) : (
+              <div className="relative" ref={custSuggestionsRef}>
+                <input
+                  value={customerSearch}
+                  onChange={(e) => {
+                    setCustomerSearch(e.target.value);
+                    setShowCustSuggestions(true);
+                  }}
+                  onFocus={() => setShowCustSuggestions(true)}
+                  placeholder="Search customer by name, phone, code..."
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 text-sm placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                />
+                {showCustSuggestions && customers.length > 0 && (
+                  <div className="absolute left-0 right-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950 shadow-2xl divide-y divide-slate-800">
+                    {customers.map((cust) => (
+                      <button
+                        key={cust.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCustomer(cust);
+                          setCustomerSearch('');
+                          setShowCustSuggestions(false);
+                        }}
+                        className="flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-slate-900 transition-colors"
+                      >
+                        <div>
+                          <p className="font-semibold text-slate-200">
+                            {cust.firstName} {cust.lastName || ''}
+                          </p>
+                          <p className="text-[10px] text-slate-400">Phone: {cust.phone} | Code: {cust.customerCode}</p>
+                        </div>
+                        <span className="text-emerald-400 text-[10px]">Pts: {cust.loyaltyPoints}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Fallback Manual Name */}
+                <div className="mt-3">
+                  <label className="block text-[10px] font-medium text-slate-500 mb-0.5">Manual Walk-in Customer Name</label>
+                  <input
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-1 text-slate-300 text-xs"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div>

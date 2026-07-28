@@ -4,6 +4,7 @@ export class CreateSaleItemDto {
 }
 
 export class CreateSaleDto {
+  customerId?: number;
   customerName?: string;
   paymentMethod: string;
   discount?: number; // Flat discount amount

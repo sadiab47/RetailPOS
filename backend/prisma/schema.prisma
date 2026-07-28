@@ -16,6 +16,7 @@ model User {
   createdAt      DateTime               @default(now()) @map("created_at")
   transactions   InventoryTransaction[]
   purchaseOrders PurchaseOrder[]
+  createdCustomers Customer[]
 
   @@map("users")
 }
@@ -117,6 +118,8 @@ model PurchaseOrderItem {
 model Sale {
   id            Int        @id @default(autoincrement())
   invoiceNumber String     @unique @map("invoice_number")
+  customerId    Int?       @map("customer_id")
+  customer      Customer?  @relation(fields: [customerId], references: [id])
   customerName  String?    @map("customer_name")
   paymentMethod String?    @map("payment_method")
   subtotal      Decimal    @default(0) @db.Decimal(10, 2)
@@ -139,4 +142,30 @@ model SaleItem {
   unitPrice Decimal @map("unit_price") @db.Decimal(10, 2)
 
   @@map("sale_items")
+}
+
+model Customer {
+  id                 Int       @id @default(autoincrement())
+  customerCode       String    @unique @map("customer_code")
+  firstName          String    @map("first_name")
+  lastName           String?   @map("last_name")
+  phone              String    @unique
+  email              String?
+  address            String?   @db.Text
+  dateOfBirth        DateTime? @map("date_of_birth") @db.Date
+  notes              String?   @db.Text
+  loyaltyPoints      Int       @default(0) @map("loyalty_points")
+  creditLimit        Decimal   @default(0.00) @map("credit_limit") @db.Decimal(10, 2)
+  outstandingBalance Decimal   @default(0.00) @map("outstanding_balance") @db.Decimal(10, 2)
+  isActive           Boolean   @default(true) @map("is_active")
+  createdBy          Int?      @map("created_by")
+  creator            User?     @relation(fields: [createdBy], references: [id])
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  sales              Sale[]
+
+  @@index([phone])
+  @@index([customerCode])
+  @@index([email])
+  @@map("customers")
 }

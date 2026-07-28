@@ -520,11 +520,22 @@ export class AppService {
 
       // 2. Create Sale header
       const [saleResult] = await connection.query<ResultSetHeader>(
-        `INSERT INTO sales (invoice_number, customer_name, payment_method, subtotal, tax, discount, total, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-        [invoiceNumber, dto.customerName || 'Walk-in Customer', dto.paymentMethod, subtotal, tax, discount, total]
+        `INSERT INTO sales (invoice_number, customer_id, customer_name, payment_method, subtotal, tax, discount, total, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        [invoiceNumber, dto.customerId || null, dto.customerName || 'Walk-in Customer', dto.paymentMethod, subtotal, tax, discount, total]
       );
       const saleId = saleResult.insertId;
+
+      // Update customer loyalty points if customer is linked
+      if (dto.customerId) {
+        const pointsEarned = Math.floor(total / 100);
+        if (pointsEarned > 0) {
+          await connection.query(
+            'UPDATE customers SET loyalty_points = loyalty_points + ? WHERE id = ?',
+            [pointsEarned, dto.customerId]
+          );
+        }
+      }
 
       // 3. Create Sale Items, Deduct Stock, and Log Ledger
       for (const item of itemsToProcess) {
@@ -569,24 +580,31 @@ export class AppService {
     invoiceNumber?: string;
     paymentMethod?: string;
   }) {
-    let sql = 'SELECT id, invoice_number, customer_name, payment_method, subtotal, tax, discount, total, created_at FROM sales WHERE 1=1';
+    let sql = `
+      SELECT s.id, s.invoice_number, s.customer_id, s.customer_name, c.customer_code, s.payment_method, s.subtotal, s.tax, s.discount, s.total, s.created_at
+      FROM sales s
+      LEFT JOIN customers c ON s.customer_id = c.id
+      WHERE 1=1
+    `;
     const params: any[] = [];
 
     if (query.invoiceNumber) {
-      sql += ' AND invoice_number LIKE ?';
+      sql += ' AND s.invoice_number LIKE ?';
       params.push(`%${query.invoiceNumber}%`);
     }
     if (query.paymentMethod) {
-      sql += ' AND payment_method = ?';
+      sql += ' AND s.payment_method = ?';
       params.push(query.paymentMethod);
     }
 
-    sql += ' ORDER BY id DESC';
+    sql += ' ORDER BY s.id DESC';
 
     const [rows] = await this.db.query<RowDataPacket[]>(sql, params);
     return rows.map(r => ({
       id: r.id,
       invoiceNumber: r.invoice_number,
+      customerId: r.customer_id,
+      customerCode: r.customer_code,
       customerName: r.customer_name,
       paymentMethod: r.payment_method,
       subtotal: Number(r.subtotal),
@@ -598,7 +616,13 @@ export class AppService {
   }
 
   async getSaleById(id: number) {
-    const [sales] = await this.db.query<RowDataPacket[]>('SELECT id, invoice_number, customer_name, payment_method, subtotal, tax, discount, total, created_at FROM sales WHERE id = ? LIMIT 1', [id]);
+    const [sales] = await this.db.query<RowDataPacket[]>(
+      `SELECT s.id, s.invoice_number, s.customer_id, s.customer_name, c.customer_code, s.payment_method, s.subtotal, s.tax, s.discount, s.total, s.created_at
+       FROM sales s
+       LEFT JOIN customers c ON s.customer_id = c.id
+       WHERE s.id = ? LIMIT 1`,
+      [id]
+    );
     if (!sales.length) {
       throw new NotFoundException('Sale not found');
     }
@@ -615,6 +639,8 @@ export class AppService {
     return {
       id: sale.id,
       invoiceNumber: sale.invoice_number,
+      customerId: sale.customer_id,
+      customerCode: sale.customer_code,
       customerName: sale.customer_name,
       paymentMethod: sale.payment_method,
       subtotal: Number(sale.subtotal),

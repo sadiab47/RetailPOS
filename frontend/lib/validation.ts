@@ -44,3 +44,14 @@ export const purchaseOrderSchema = z.object({
   supplierId: z.number().min(1, 'Supplier is required'),
   items: z.array(purchaseOrderItemSchema).min(1, 'At least one item is required'),
 });
+
+export const customerSchema = z.object({
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().optional(),
+  phone: z.string().min(5, 'Phone number must be at least 5 digits'),
+  email: z.union([z.string().email('Invalid email address'), z.literal('')]).optional(),
+  address: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  notes: z.string().optional(),
+  creditLimit: z.number().nonnegative('Credit limit cannot be negative').optional().default(0),
+});
