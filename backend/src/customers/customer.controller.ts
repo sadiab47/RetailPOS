@@ -29,6 +29,21 @@ export class CustomerController {
     return this.customerService.getCustomerById(Number(id));
   }
 
+  @Get(':id/analytics')
+  getAnalytics(@Param('id') id: string) {
+    return this.customerService.getCustomerAnalytics(Number(id));
+  }
+
+  @Post(':id/pay-balance')
+  payBalance(
+    @Param('id') id: string,
+    @Body() body: { amount: number; remarks?: string },
+    @Req() req: any
+  ) {
+    const userId = req.user?.id;
+    return this.customerService.payOutstandingBalance(Number(id), body.amount, body.remarks || '', userId);
+  }
+
   @Put(':id')
   update(@Param('id') id: string, @Body() dto: UpdateCustomerDto) {
     return this.customerService.updateCustomer(Number(id), dto);

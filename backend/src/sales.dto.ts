@@ -9,5 +9,6 @@ export class CreateSaleDto {
   paymentMethod: string;
   discount?: number; // Flat discount amount
   tax?: number; // Flat tax amount
+  pointsRedeemed?: number;
   items: CreateSaleItemDto[];
 }

@@ -54,6 +54,7 @@ export default function PosTab() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [showCustSuggestions, setShowCustSuggestions] = useState(false);
   const custSuggestionsRef = useRef<HTMLDivElement>(null);
+  const [pointsRedeemedInput, setPointsRedeemedInput] = useState('0');
 
   // Search and Suggestions
   const [searchQuery, setSearchQuery] = useState('');
@@ -227,7 +228,12 @@ export default function PosTab() {
     return cart.reduce((sum, item) => sum + item.quantity * item.product.sellingPrice, 0);
   };
   const subtotal = calculateSubtotal();
-  const discount = Number(discountInput) || 0;
+  const pointsDiscount = Math.min(
+    selectedCustomer ? selectedCustomer.loyaltyPoints : 0,
+    subtotal,
+    Number(pointsRedeemedInput) || 0
+  );
+  const discount = (Number(discountInput) || 0) + pointsDiscount;
   const tax = Number(taxInput) || 0;
   const grandTotal = Math.max(0, subtotal - discount + tax);
 
@@ -242,8 +248,9 @@ export default function PosTab() {
       customerId: selectedCustomer?.id || null,
       customerName: selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName || ''}`.trim() : customerName,
       paymentMethod,
-      discount,
+      discount: Number(discountInput) || 0, // send manual discount separate from point discount (backend will calculate net)
       tax,
+      pointsRedeemed: pointsDiscount,
       items: cart.map((item) => ({
         productId: item.product.id,
         quantity: item.quantity,
@@ -267,6 +274,7 @@ export default function PosTab() {
       setCart([]);
       setDiscountInput('0');
       setTaxInput('0');
+      setPointsRedeemedInput('0');
       setCustomerName('Walk-in Customer');
       setSelectedCustomer(null);
       setCustomerSearch('');
@@ -386,22 +394,44 @@ export default function PosTab() {
           <div>
             <label className="block text-sm font-medium text-slate-400 mb-1">Customer Selection</label>
             {selectedCustomer ? (
-              <div className="flex items-center justify-between rounded-lg border border-emerald-500 bg-emerald-500/10 p-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-100">
-                    {selectedCustomer.firstName} {selectedCustomer.lastName || ''}
-                  </p>
-                  <p className="text-[10px] text-slate-400">
-                    Code: {selectedCustomer.customerCode} | Loyalty Pts: {selectedCustomer.loyaltyPoints}
-                  </p>
+              <div className="space-y-3 rounded-lg border border-emerald-500 bg-emerald-500/10 p-3">
+                <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-100">
+                      {selectedCustomer.firstName} {selectedCustomer.lastName || ''}
+                    </p>
+                    <p className="text-[10px] text-slate-400">Code: {selectedCustomer.customerCode}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCustomer(null);
+                      setPointsRedeemedInput('0');
+                    }}
+                    className="text-xs text-red-400 hover:text-red-300 font-semibold"
+                  >
+                    Clear
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedCustomer(null)}
-                  className="text-xs text-red-400 hover:text-red-300 font-semibold"
-                >
-                  Clear
-                </button>
+                {/* Profile mini-dashboard statistics */}
+                <div className="grid gap-2 grid-cols-2 text-[10px] text-slate-300">
+                  <div>
+                    <span className="text-slate-400 block">Loyalty Points:</span>
+                    <span className="font-bold text-emerald-400">{selectedCustomer.loyaltyPoints} Pts</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Outstanding Balance:</span>
+                    <span className="font-bold text-red-400">Rs. {Number(selectedCustomer.outstandingBalance).toFixed(2)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Credit Limit:</span>
+                    <span className="font-bold text-slate-200">Rs. {Number(selectedCustomer.creditLimit).toFixed(2)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Available Credit:</span>
+                    <span className="font-bold text-sky-400">Rs. {(Number(selectedCustomer.creditLimit) - Number(selectedCustomer.outstandingBalance)).toFixed(2)}</span>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="relative" ref={custSuggestionsRef}>
@@ -452,23 +482,53 @@ export default function PosTab() {
             )}
           </div>
 
+          {/* Points Redemption (Visible when customer is linked with positive points balance) */}
+          {selectedCustomer && selectedCustomer.loyaltyPoints > 0 && (
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-xs font-medium text-slate-400">Redeem Loyalty Points</label>
+                <span className="text-[10px] text-emerald-400">Max points discount: {Math.min(selectedCustomer.loyaltyPoints, subtotal)} Pts</span>
+              </div>
+              <input
+                type="number"
+                min="0"
+                max={Math.min(selectedCustomer.loyaltyPoints, subtotal)}
+                value={pointsRedeemedInput}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  const maxVal = Math.min(selectedCustomer.loyaltyPoints, subtotal);
+                  if (val > maxVal) {
+                    setPointsRedeemedInput(String(maxVal));
+                  } else {
+                    setPointsRedeemedInput(e.target.value);
+                  }
+                }}
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 text-sm focus:border-emerald-500 focus:outline-none"
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-slate-400 mb-1">Payment Method</label>
-            <div className="grid gap-2 grid-cols-3">
-              {['CASH', 'CARD', 'MOBILE'].map((method) => (
-                <button
-                  key={method}
-                  type="button"
-                  onClick={() => setPaymentMethod(method)}
-                  className={`rounded-lg border py-2 text-xs font-semibold transition-colors ${
-                    paymentMethod === method
-                      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
-                      : 'border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-500'
-                  }`}
-                >
-                  {method}
-                </button>
-              ))}
+            <div className="grid gap-2 grid-cols-4">
+              {['CASH', 'CARD', 'MOBILE', 'CREDIT'].map((method) => {
+                const isDisabled = method === 'CREDIT' && !selectedCustomer;
+                return (
+                  <button
+                    key={method}
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={() => setPaymentMethod(method)}
+                    className={`rounded-lg border py-2 text-xs font-semibold transition-colors disabled:opacity-30 disabled:hover:border-slate-700 ${
+                      paymentMethod === method
+                        ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                        : 'border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-500'
+                    }`}
+                  >
+                    {method}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

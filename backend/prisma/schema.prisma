@@ -17,6 +17,7 @@ model User {
   transactions   InventoryTransaction[]
   purchaseOrders PurchaseOrder[]
   createdCustomers Customer[]
+  createdCreditLedgers CustomerCreditLedger[]
 
   @@map("users")
 }
@@ -163,9 +164,41 @@ model Customer {
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
   sales              Sale[]
+  loyaltyLedger      CustomerLoyaltyLedger[]
+  creditLedger       CustomerCreditLedger[]
 
   @@index([phone])
   @@index([customerCode])
   @@index([email])
   @@map("customers")
+}
+
+model CustomerLoyaltyLedger {
+  id              Int      @id @default(autoincrement())
+  customerId      Int      @map("customer_id")
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  pointsChange    Int      @map("points_change")
+  transactionType String   @map("transaction_type") // EARNED, REDEEMED, EXPIRED, ADJUSTED, BONUS
+  referenceType   String?  @map("reference_type")
+  referenceId     Int?     @map("reference_id")
+  remarks         String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("customer_loyalty_ledger")
+}
+
+model CustomerCreditLedger {
+  id              Int      @id @default(autoincrement())
+  customerId      Int      @map("customer_id")
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  amountChange    Decimal  @map("amount_change") @db.Decimal(10, 2)
+  transactionType String   @map("transaction_type") // SALE, PAYMENT, ADJUSTMENT, WRITE_OFF
+  referenceType   String?  @map("reference_type")
+  referenceId     Int?     @map("reference_id")
+  remarks         String?  @db.Text
+  createdBy       Int?     @map("created_by")
+  creator         User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("customer_credit_ledger")
 }

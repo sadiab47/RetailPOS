@@ -510,10 +510,51 @@ export class AppService {
         });
       }
 
+      // Check customer limits and points
+      let customer: any = null;
+      if (dto.customerId) {
+        const [custs] = await connection.query<RowDataPacket[]>(
+          'SELECT id, is_active, loyalty_points, credit_limit, outstanding_balance FROM customers WHERE id = ? LIMIT 1',
+          [dto.customerId]
+        );
+        if (custs.length === 0) {
+          throw new NotFoundException('Linked customer profile not found');
+        }
+        customer = custs[0];
+        if (!customer.is_active) {
+          throw new BadRequestException('Customer profile is inactive and cannot be linked to sales');
+        }
+      }
+
+      let pointsDiscount = 0;
+      const pointsRedeemed = Number(dto.pointsRedeemed || 0);
+      if (pointsRedeemed > 0) {
+        if (!customer) {
+          throw new BadRequestException('Cannot redeem points without a selected customer');
+        }
+        if (pointsRedeemed > customer.loyalty_points) {
+          throw new BadRequestException(`Insufficient loyalty points balance. Available: ${customer.loyalty_points}`);
+        }
+        if (pointsRedeemed > subtotal) {
+          throw new BadRequestException('Redeemed points discount cannot exceed the subtotal amount');
+        }
+        pointsDiscount = pointsRedeemed; // 1 point = 1 Rs
+      }
+
       // Calculate total
-      const discount = Number(dto.discount || 0);
+      const discount = Number(dto.discount || 0) + pointsDiscount;
       const tax = Number(dto.tax || 0);
       const total = Math.max(0, subtotal - discount + tax);
+
+      if (dto.paymentMethod === 'CREDIT') {
+        if (!customer) {
+          throw new BadRequestException('A registered customer must be selected for CREDIT sales');
+        }
+        const availableCredit = Number(customer.credit_limit) - Number(customer.outstanding_balance);
+        if (total > availableCredit) {
+          throw new BadRequestException(`Insufficient credit limit. Available Credit: Rs. ${availableCredit.toFixed(2)}, Requested: Rs. ${total.toFixed(2)}`);
+        }
+      }
 
       // Generate invoice number
       const invoiceNumber = `INV-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -526,13 +567,45 @@ export class AppService {
       );
       const saleId = saleResult.insertId;
 
-      // Update customer loyalty points if customer is linked
+      // Log points/credit changes
       if (dto.customerId) {
+        // Points redemption ledger log
+        if (pointsRedeemed > 0) {
+          await connection.query(
+            `INSERT INTO customer_loyalty_ledger (customer_id, points_change, transaction_type, reference_type, reference_id, remarks, created_at)
+             VALUES (?, ?, 'REDEEMED', 'sales', ?, 'Points redeemed at checkout', NOW())`,
+            [dto.customerId, -pointsRedeemed, saleId]
+          );
+          await connection.query(
+            'UPDATE customers SET loyalty_points = loyalty_points - ? WHERE id = ?',
+            [pointsRedeemed, dto.customerId]
+          );
+        }
+
+        // Points earning ledger log
         const pointsEarned = Math.floor(total / 100);
         if (pointsEarned > 0) {
           await connection.query(
+            `INSERT INTO customer_loyalty_ledger (customer_id, points_change, transaction_type, reference_type, reference_id, remarks, created_at)
+             VALUES (?, ?, 'EARNED', 'sales', ?, 'Points earned from sale purchase', NOW())`,
+            [dto.customerId, pointsEarned, saleId]
+          );
+          await connection.query(
             'UPDATE customers SET loyalty_points = loyalty_points + ? WHERE id = ?',
             [pointsEarned, dto.customerId]
+          );
+        }
+
+        // CREDIT payment method ledger log
+        if (dto.paymentMethod === 'CREDIT') {
+          await connection.query(
+            `INSERT INTO customer_credit_ledger (customer_id, amount_change, transaction_type, reference_type, reference_id, remarks, created_by, created_at)
+             VALUES (?, ?, 'SALE', 'sales', ?, 'Credit purchase charged at checkout', ?, NOW())`,
+            [dto.customerId, total, saleId, userId || null]
+          );
+          await connection.query(
+            'UPDATE customers SET outstanding_balance = outstanding_balance + ? WHERE id = ?',
+            [total, dto.customerId]
           );
         }
       }

@@ -265,4 +265,181 @@ export class CustomerService {
     await this.db.query('DELETE FROM customers WHERE id = ?', [id]);
     return { success: true, message: 'Customer profile deleted' };
   }
+
+  async logPointsChange(
+    connection: any,
+    customerId: number,
+    pointsChange: number,
+    transactionType: 'EARNED' | 'REDEEMED' | 'EXPIRED' | 'ADJUSTED' | 'BONUS',
+    referenceType?: string,
+    referenceId?: number,
+    remarks?: string
+  ) {
+    await connection.query(
+      `INSERT INTO customer_loyalty_ledger (customer_id, points_change, transaction_type, reference_type, reference_id, remarks, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [customerId, pointsChange, transactionType, referenceType || null, referenceId || null, remarks || null]
+    );
+
+    await connection.query(
+      `UPDATE customers SET loyalty_points = loyalty_points + ? WHERE id = ?`,
+      [pointsChange, customerId]
+    );
+  }
+
+  async logCreditChange(
+    connection: any,
+    customerId: number,
+    amountChange: number,
+    transactionType: 'SALE' | 'PAYMENT' | 'ADJUSTMENT' | 'WRITE_OFF',
+    referenceType?: string,
+    referenceId?: number,
+    remarks?: string,
+    userId?: number
+  ) {
+    await connection.query(
+      `INSERT INTO customer_credit_ledger (customer_id, amount_change, transaction_type, reference_type, reference_id, remarks, created_by, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [customerId, amountChange, transactionType, referenceType || null, referenceId || null, remarks || null, userId || null]
+    );
+
+    await connection.query(
+      `UPDATE customers SET outstanding_balance = outstanding_balance + ? WHERE id = ?`,
+      [amountChange, customerId]
+    );
+  }
+
+  async payOutstandingBalance(customerId: number, amount: number, remarks: string, userId?: number) {
+    if (amount <= 0) {
+      throw new BadRequestException('Payment amount must be greater than zero');
+    }
+
+    const connection = await this.db.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      const [customers] = await connection.query<RowDataPacket[]>(
+        'SELECT id, outstanding_balance FROM customers WHERE id = ? LIMIT 1',
+        [customerId]
+      );
+      if (customers.length === 0) {
+        throw new NotFoundException('Customer not found');
+      }
+
+      await this.logCreditChange(
+        connection,
+        customerId,
+        -amount,
+        'PAYMENT',
+        'manual',
+        null,
+        remarks || 'Outstanding balance payment received',
+        userId
+      );
+
+      await connection.commit();
+      return this.getCustomerById(customerId);
+    } catch (err: any) {
+      await connection.rollback();
+      throw new BadRequestException(err.message || 'Payment execution failed');
+    } finally {
+      connection.release();
+    }
+  }
+
+  async getCustomerAnalytics(id: number) {
+    const customer = await this.getCustomerById(id);
+
+    const [spendingRows] = await this.db.query<RowDataPacket[]>(
+      `SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(id) as visit_count, SUM(total) as spent_amount
+       FROM sales
+       WHERE customer_id = ?
+       GROUP BY month
+       ORDER BY month ASC
+       LIMIT 12`,
+      [id]
+    );
+
+    const [loyaltyRows] = await this.db.query<RowDataPacket[]>(
+      `SELECT id, points_change, transaction_type, reference_type, reference_id, remarks, created_at
+       FROM customer_loyalty_ledger
+       WHERE customer_id = ?
+       ORDER BY id DESC`,
+      [id]
+    );
+
+    const [creditRows] = await this.db.query<RowDataPacket[]>(
+      `SELECT cl.id, cl.amount_change, cl.transaction_type, cl.reference_type, cl.reference_id, cl.remarks, cl.created_at, u.name as created_by_name
+       FROM customer_credit_ledger cl
+       LEFT JOIN users u ON cl.created_by = u.id
+       WHERE cl.customer_id = ?
+       ORDER BY cl.id DESC`,
+      [id]
+    );
+
+    const [favRows] = await this.db.query<RowDataPacket[]>(
+      `SELECT p.name as product_name, SUM(si.quantity) as total_qty, COUNT(s.id) as order_count
+       FROM sale_items si
+       JOIN sales s ON si.sale_id = s.id
+       JOIN products p ON si.product_id = p.id
+       WHERE s.customer_id = ?
+       GROUP BY si.product_id
+       ORDER BY total_qty DESC
+       LIMIT 5`,
+      [id]
+    );
+
+    return {
+      profile: {
+        id: customer.id,
+        customerCode: customer.customerCode,
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+        phone: customer.phone,
+        email: customer.email,
+        address: customer.address,
+        dateOfBirth: customer.dateOfBirth,
+        isActive: customer.isActive,
+        createdAt: customer.createdAt,
+      },
+      summary: {
+        totalSpent: customer.stats.totalSpent,
+        totalPurchases: customer.stats.totalPurchases,
+        lastPurchaseDate: customer.stats.lastPurchaseDate,
+        loyaltyPoints: customer.loyaltyPoints,
+        creditLimit: customer.creditLimit,
+        outstandingBalance: customer.outstandingBalance,
+        availableCredit: Math.max(0, customer.creditLimit - customer.outstandingBalance),
+      },
+      spending: spendingRows.map(r => ({
+        month: r.month,
+        visits: Number(r.visit_count),
+        spent: Number(r.spent_amount),
+      })),
+      loyalty: loyaltyRows.map(r => ({
+        id: r.id,
+        pointsChange: r.points_change,
+        transactionType: r.transaction_type,
+        referenceType: r.reference_type,
+        referenceId: r.reference_id,
+        remarks: r.remarks,
+        createdAt: r.created_at,
+      })),
+      credit: creditRows.map(r => ({
+        id: r.id,
+        amountChange: Number(r.amount_change),
+        transactionType: r.transaction_type,
+        referenceType: r.reference_type,
+        referenceId: r.reference_id,
+        remarks: r.remarks,
+        createdAt: r.created_at,
+        createdByName: r.created_by_name || 'System',
+      })),
+      favoriteProducts: favRows.map(r => ({
+        productName: r.product_name,
+        quantity: Number(r.total_qty),
+        orders: Number(r.order_count),
+      })),
+    };
+  }
 }

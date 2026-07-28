@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchWithAuth } from '../lib/fetchWithAuth';
 import CustomerForm from './CustomerForm';
+import CustomerAnalytics from './CustomerAnalytics';
 
 interface Customer {
   id: number;
@@ -185,81 +186,8 @@ export default function CustomersTab() {
               </div>
             </div>
 
-            {/* Profile Fields */}
-            <div className="grid gap-4 grid-cols-2 text-xs">
-              <div>
-                <p className="text-slate-400 font-medium">Phone</p>
-                <p className="text-slate-200 mt-1 font-semibold">{selectedCustomer.phone}</p>
-              </div>
-              <div>
-                <p className="text-slate-400 font-medium">Email</p>
-                <p className="text-slate-200 mt-1 font-semibold">{selectedCustomer.email || 'N/A'}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-slate-400 font-medium">Address</p>
-                <p className="text-slate-200 mt-1">{selectedCustomer.address || 'No address registered.'}</p>
-              </div>
-              <div>
-                <p className="text-slate-400 font-medium">DOB</p>
-                <p className="text-slate-200 mt-1">
-                  {selectedCustomer.dateOfBirth
-                    ? new Date(selectedCustomer.dateOfBirth).toLocaleDateString()
-                    : 'N/A'}
-                </p>
-              </div>
-              <div>
-                <p className="text-slate-400 font-medium">Credit Limit</p>
-                <p className="text-slate-200 mt-1 font-semibold">Rs. {selectedCustomer.creditLimit.toFixed(2)}</p>
-              </div>
-            </div>
-
-            {/* Loyalty & Financial Metrics */}
-            <div className="grid gap-4 grid-cols-2 border-t border-slate-800 pt-6">
-              <div className="rounded-xl bg-slate-950 p-4 border border-slate-800 text-center">
-                <p className="text-xs text-slate-400">Loyalty Points</p>
-                <p className="text-2xl font-bold text-emerald-400 mt-1">{selectedCustomer.loyaltyPoints}</p>
-              </div>
-              <div className="rounded-xl bg-slate-950 p-4 border border-slate-800 text-center">
-                <p className="text-xs text-slate-400">Outstanding Balance</p>
-                <p className="text-2xl font-bold text-red-400 mt-1">
-                  Rs. {selectedCustomer.outstandingBalance.toFixed(2)}
-                </p>
-              </div>
-            </div>
-
-            {/* Sales Stats Summary */}
-            <div className="border-t border-slate-800 pt-6 space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Sales Summary</h4>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Total Spent</span>
-                  <span className="text-slate-200 font-semibold">
-                    Rs. {selectedCustomer.stats.totalSpent.toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Total Visits/Purchases</span>
-                  <span className="text-slate-200 font-semibold">{selectedCustomer.stats.totalPurchases}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Last Purchase Date</span>
-                  <span className="text-slate-200 font-semibold">
-                    {selectedCustomer.stats.lastPurchaseDate
-                      ? new Date(selectedCustomer.stats.lastPurchaseDate).toLocaleString()
-                      : 'Never'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {selectedCustomer.notes && (
-              <div className="border-t border-slate-800 pt-4 text-xs">
-                <p className="text-slate-400 font-medium mb-1">Internal Notes</p>
-                <p className="text-slate-300 italic bg-slate-950 p-3 rounded-lg border border-slate-800">
-                  {selectedCustomer.notes}
-                </p>
-              </div>
-            )}
+            {/* Customer Dashboard analytics and ledgers */}
+            <CustomerAnalytics customerId={selectedCustomer.id} onRefreshParent={loadCustomers} />
           </div>
         ) : (
           <div className="h-full flex items-center justify-center rounded-2xl border border-slate-800 bg-slate-900/40 p-8 text-center text-slate-500">

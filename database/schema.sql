@@ -140,3 +140,29 @@ CREATE TABLE IF NOT EXISTS sale_items (
   FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
   FOREIGN KEY (product_id) REFERENCES products(id)
 );
+
+CREATE TABLE IF NOT EXISTS customer_loyalty_ledger (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  customer_id INT NOT NULL,
+  points_change INT NOT NULL,
+  transaction_type ENUM('EARNED', 'REDEEMED', 'EXPIRED', 'ADJUSTED', 'BONUS') NOT NULL,
+  reference_type VARCHAR(50) NULL,
+  reference_id INT NULL,
+  remarks TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS customer_credit_ledger (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  customer_id INT NOT NULL,
+  amount_change DECIMAL(10,2) NOT NULL,
+  transaction_type ENUM('SALE', 'PAYMENT', 'ADJUSTMENT', 'WRITE_OFF') NOT NULL,
+  reference_type VARCHAR(50) NULL,
+  reference_id INT NULL,
+  remarks TEXT NULL,
+  created_by INT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
