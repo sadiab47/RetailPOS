@@ -1,12 +1,19 @@
-CREATE DATABASE IF NOT EXISTS retailpos;
-
-USE retailpos;
+DROP TABLE IF EXISTS sale_items;
+DROP TABLE IF EXISTS sales;
+DROP TABLE IF EXISTS purchase_order_items;
+DROP TABLE IF EXISTS purchase_orders;
+DROP TABLE IF EXISTS inventory_transactions;
+DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS suppliers;
+DROP TABLE IF EXISTS categories;
+DROP TABLE IF EXISTS users;
 
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  refresh_token_hash VARCHAR(255),
   role VARCHAR(50) NOT NULL DEFAULT 'cashier',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -14,7 +21,21 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS categories (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  description TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS suppliers (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_name VARCHAR(255) NOT NULL,
+  contact_person VARCHAR(255),
+  phone VARCHAR(50),
+  email VARCHAR(255),
+  address TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS products (
@@ -22,21 +43,54 @@ CREATE TABLE IF NOT EXISTS products (
   barcode VARCHAR(100) UNIQUE NOT NULL,
   name VARCHAR(255) NOT NULL,
   category_id INT,
-  purchase_price DECIMAL(10,2) NOT NULL DEFAULT 0,
-  selling_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  supplier_id INT,
+  cost_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  selling_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   stock INT NOT NULL DEFAULT 0,
+  low_stock_threshold INT NOT NULL DEFAULT 10,
   sku VARCHAR(100),
+  is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (category_id) REFERENCES categories(id)
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+  FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL
 );
 
-CREATE TABLE IF NOT EXISTS suppliers (
+CREATE TABLE IF NOT EXISTS inventory_transactions (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  contact_person VARCHAR(255),
-  phone VARCHAR(50),
-  email VARCHAR(255),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  product_id INT NOT NULL,
+  transaction_type VARCHAR(50) NOT NULL,
+  quantity_change INT NOT NULL,
+  quantity_before INT NOT NULL,
+  quantity_after INT NOT NULL,
+  reference_type VARCHAR(50),
+  reference_id INT,
+  remarks TEXT,
+  created_by INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS purchase_orders (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  supplier_id INT NOT NULL,
+  order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+  total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  created_by INT,
+  FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS purchase_order_items (
+  purchase_order_id INT NOT NULL,
+  product_id INT NOT NULL,
+  quantity INT NOT NULL,
+  unit_cost DECIMAL(10,2) NOT NULL,
+  PRIMARY KEY (purchase_order_id, product_id),
+  FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
 CREATE TABLE IF NOT EXISTS sales (
@@ -44,10 +98,10 @@ CREATE TABLE IF NOT EXISTS sales (
   invoice_number VARCHAR(100) UNIQUE NOT NULL,
   customer_name VARCHAR(255),
   payment_method VARCHAR(50),
-  subtotal DECIMAL(10,2) NOT NULL DEFAULT 0,
-  tax DECIMAL(10,2) NOT NULL DEFAULT 0,
-  discount DECIMAL(10,2) NOT NULL DEFAULT 0,
-  total DECIMAL(10,2) NOT NULL DEFAULT 0,
+  subtotal DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  tax DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  discount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -57,6 +111,6 @@ CREATE TABLE IF NOT EXISTS sale_items (
   product_id INT NOT NULL,
   quantity INT NOT NULL,
   unit_price DECIMAL(10,2) NOT NULL,
-  FOREIGN KEY (sale_id) REFERENCES sales(id),
+  FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
   FOREIGN KEY (product_id) REFERENCES products(id)
 );

@@ -9,3 +9,7 @@ export class RegisterDto {
   password: string;
   role?: string;
 }
+
+export class RefreshTokenDto {
+  refreshToken: string;
+}

@@ -1,9 +1,12 @@
 export class CreateProductDto {
   barcode: string;
   name: string;
-  category: string;
-  purchasePrice: number;
+  categoryId?: number;
+  supplierId?: number;
+  costPrice: number;
   sellingPrice: number;
-  stock: number;
+  stock?: number;
+  lowStockThreshold?: number;
   sku?: string;
+  isActive?: boolean;
 }
