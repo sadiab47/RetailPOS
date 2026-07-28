@@ -15,9 +15,10 @@ import PurchasesTab from '../components/PurchasesTab';
 import PosTab from '../components/PosTab';
 import SalesHistoryTab from '../components/SalesHistoryTab';
 import CustomersTab from '../components/CustomersTab';
+import ReturnsTab from '../components/ReturnsTab';
 import ReportsTab from '../components/ReportsTab';
 
-type Tab = 'dashboard' | 'products' | 'categories' | 'suppliers' | 'inventory' | 'purchases' | 'pos' | 'salesHistory' | 'customers' | 'reports';
+type Tab = 'dashboard' | 'products' | 'categories' | 'suppliers' | 'inventory' | 'purchases' | 'pos' | 'salesHistory' | 'customers' | 'returns' | 'reports';
 
 export default function HomePage() {
   const { user, isAuthenticated, isLoading, initializeAuth } = useAuthStore();
@@ -70,6 +71,8 @@ export default function HomePage() {
         return <SalesHistoryTab />;
       case 'customers':
         return <CustomersTab />;
+      case 'returns':
+        return <ReturnsTab />;
       case 'reports':
         return <ReportsTab />;
       default:
@@ -81,6 +84,7 @@ export default function HomePage() {
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'pos', label: 'POS Terminal' },
     { id: 'salesHistory', label: 'Sales History' },
+    { id: 'returns', label: 'Returns & Refunds' },
     { id: 'customers', label: 'Customers' },
     { id: 'products', label: 'Products' },
     { id: 'categories', label: 'Categories' },

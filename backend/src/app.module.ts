@@ -6,9 +6,10 @@ import { AuthGuard } from './auth.guard';
 import { RolesGuard } from './roles.guard';
 import pool from './database.provider';
 import { CustomerModule } from './customers/customer.module';
+import { ReturnsModule } from './returns/returns.module';
 
 @Module({
-  imports: [CustomerModule],
+  imports: [CustomerModule, ReturnsModule],
   controllers: [AppController],
   providers: [AppService, AuthService, AuthGuard, RolesGuard, {
     provide: 'DATABASE_POOL',
