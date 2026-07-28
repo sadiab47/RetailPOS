@@ -17,8 +17,9 @@ import SalesHistoryTab from '../components/SalesHistoryTab';
 import CustomersTab from '../components/CustomersTab';
 import ReturnsTab from '../components/ReturnsTab';
 import ReportsTab from '../components/ReportsTab';
+import RegisterTab from '../components/RegisterTab';
 
-type Tab = 'dashboard' | 'products' | 'categories' | 'suppliers' | 'inventory' | 'purchases' | 'pos' | 'salesHistory' | 'customers' | 'returns' | 'reports';
+type Tab = 'dashboard' | 'products' | 'categories' | 'suppliers' | 'inventory' | 'purchases' | 'pos' | 'salesHistory' | 'customers' | 'returns' | 'register' | 'reports';
 
 export default function HomePage() {
   const { user, isAuthenticated, isLoading, initializeAuth } = useAuthStore();
@@ -73,6 +74,8 @@ export default function HomePage() {
         return <CustomersTab />;
       case 'returns':
         return <ReturnsTab />;
+      case 'register':
+        return <RegisterTab />;
       case 'reports':
         return <ReportsTab />;
       default:
@@ -83,6 +86,7 @@ export default function HomePage() {
   const tabsConfig: { id: Tab; label: string }[] = [
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'pos', label: 'POS Terminal' },
+    { id: 'register', label: 'Cash Drawer Register' },
     { id: 'salesHistory', label: 'Sales History' },
     { id: 'returns', label: 'Returns & Refunds' },
     { id: 'customers', label: 'Customers' },

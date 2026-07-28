@@ -475,6 +475,16 @@ export class AppService {
     await connection.beginTransaction();
 
     try {
+      if (dto.paymentMethod === 'CASH') {
+        const [shifts] = await connection.query<RowDataPacket[]>(
+          'SELECT id FROM cash_shifts WHERE user_id = ? AND status = "OPEN" LIMIT 1',
+          [userId]
+        );
+        if (shifts.length === 0) {
+          throw new BadRequestException('An active cash register shift must be open to process CASH sales');
+        }
+      }
+
       let subtotal = 0;
       const itemsToProcess: { productId: number; quantity: number; sellingPrice: number; oldStock: number; name: string }[] = [];
 
@@ -636,6 +646,19 @@ export class AppService {
             `Sold via POS. Invoice: ${invoiceNumber}`,
             userId || null
           ]
+        );
+      }
+
+      if (dto.paymentMethod === 'CASH') {
+        const [shifts] = await connection.query<RowDataPacket[]>(
+          'SELECT id FROM cash_shifts WHERE user_id = ? AND status = "OPEN" LIMIT 1',
+          [userId]
+        );
+        const shiftId = shifts[0].id;
+        await connection.query(
+          `INSERT INTO cash_movements (shift_id, amount, type, reference_type, reference_id, remarks, created_by, created_at)
+           VALUES (?, ?, 'SALE', 'sales', ?, 'POS checkout sale', ?, NOW())`,
+          [shiftId, total, saleId, userId || null]
         );
       }
 

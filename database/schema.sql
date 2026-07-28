@@ -1,4 +1,7 @@
 SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS cash_movements;
+DROP TABLE IF EXISTS cash_shifts;
+DROP TABLE IF EXISTS cash_registers;
 DROP TABLE IF EXISTS sales_return_items;
 DROP TABLE IF EXISTS sales_returns;
 DROP TABLE IF EXISTS customer_credit_ledger;
@@ -199,3 +202,45 @@ CREATE TABLE IF NOT EXISTS sales_return_items (
   FOREIGN KEY (sale_item_id) REFERENCES sale_items(id) ON DELETE RESTRICT,
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
 );
+
+CREATE TABLE IF NOT EXISTS cash_registers (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  status ENUM('ACTIVE', 'INACTIVE', 'MAINTENANCE') NOT NULL DEFAULT 'ACTIVE',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS cash_shifts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  register_id INT NOT NULL,
+  user_id INT NOT NULL,
+  opening_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  closing_time TIMESTAMP NULL,
+  opening_cash DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  closing_cash DECIMAL(10,2) NULL,
+  expected_cash DECIMAL(10,2) NULL,
+  actual_cash DECIMAL(10,2) NULL,
+  variance DECIMAL(10,2) NULL,
+  status ENUM('OPEN', 'CLOSED', 'SUSPENDED') NOT NULL DEFAULT 'OPEN',
+  notes TEXT NULL,
+  FOREIGN KEY (register_id) REFERENCES cash_registers(id) ON DELETE RESTRICT,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS cash_movements (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  shift_id INT NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  type ENUM('OPENING', 'SALE', 'RETURN', 'CASH_IN', 'CASH_OUT', 'SAFE_DROP', 'BANK_DEPOSIT', 'ADJUSTMENT', 'CLOSING') NOT NULL,
+  reference_type VARCHAR(50) NULL,
+  reference_id INT NULL,
+  remarks TEXT NULL,
+  created_by INT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (shift_id) REFERENCES cash_shifts(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Seed default register
+INSERT INTO cash_registers (id, name, status) VALUES (1, 'Main Register', 'ACTIVE') ON DUPLICATE KEY UPDATE name=name;

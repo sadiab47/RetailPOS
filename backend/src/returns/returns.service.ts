@@ -15,6 +15,16 @@ export class ReturnsService {
     await connection.beginTransaction();
 
     try {
+      if (dto.refundMethod === 'CASH') {
+        const [shifts] = await connection.query<RowDataPacket[]>(
+          'SELECT id FROM cash_shifts WHERE user_id = ? AND status = "OPEN" LIMIT 1',
+          [userId]
+        );
+        if (shifts.length === 0) {
+          throw new BadRequestException('An active cash register shift must be open to process CASH refunds');
+        }
+      }
+
       // 1. Fetch original sale details
       const [sales] = await connection.query<RowDataPacket[]>(
         'SELECT id, total, customer_id, customer_name FROM sales WHERE id = ? LIMIT 1',
@@ -189,6 +199,19 @@ export class ReturnsService {
         }
       } else if (dto.refundMethod === 'STORE_CREDIT') {
         throw new BadRequestException('Cannot issue STORE_CREDIT to a Walk-in Customer');
+      }
+
+      if (dto.refundMethod === 'CASH') {
+        const [shifts] = await connection.query<RowDataPacket[]>(
+          'SELECT id FROM cash_shifts WHERE user_id = ? AND status = "OPEN" LIMIT 1',
+          [userId]
+        );
+        const shiftId = shifts[0].id;
+        await connection.query(
+          `INSERT INTO cash_movements (shift_id, amount, type, reference_type, reference_id, remarks, created_by, created_at)
+           VALUES (?, ?, 'RETURN', 'sales_returns', ?, 'Sale return cash refund', ?, NOW())`,
+          [shiftId, -calculatedRefundTotal, returnId, userId || null]
+        );
       }
 
       await connection.commit();

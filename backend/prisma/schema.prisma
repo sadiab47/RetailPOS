@@ -19,6 +19,8 @@ model User {
   createdCustomers Customer[]
   createdCreditLedgers CustomerCreditLedger[]
   createdReturns       SalesReturn[]
+  shifts               CashShift[]
+  createdMovements     CashMovement[]
 
   @@map("users")
 }
@@ -237,4 +239,51 @@ model SalesReturnItem {
   unitPrice  Decimal     @map("unit_price") @db.Decimal(10, 2)
 
   @@map("sales_return_items")
+}
+
+model CashRegister {
+  id        Int         @id @default(autoincrement())
+  name      String
+  status    String      @default("ACTIVE")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  shifts    CashShift[]
+
+  @@map("cash_registers")
+}
+
+model CashShift {
+  id          Int            @id @default(autoincrement())
+  registerId  Int            @map("register_id")
+  register    CashRegister   @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  userId      Int            @map("user_id")
+  user        User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  openingTime DateTime       @default(now()) @map("opening_time")
+  closingTime DateTime?      @map("closing_time")
+  openingCash Decimal        @map("opening_cash") @db.Decimal(10, 2)
+  closingCash Decimal?       @map("closing_cash") @db.Decimal(10, 2)
+  expectedCash Decimal?      @map("expected_cash") @db.Decimal(10, 2)
+  actualCash  Decimal?       @map("actual_cash") @db.Decimal(10, 2)
+  variance    Decimal?       @db.Decimal(10, 2)
+  status      String         @default("OPEN")
+  notes       String?        @db.Text
+  movements   CashMovement[]
+
+  @@map("cash_shifts")
+}
+
+model CashMovement {
+  id            Int       @id @default(autoincrement())
+  shiftId       Int       @map("shift_id")
+  shift         CashShift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  amount        Decimal   @db.Decimal(10, 2)
+  type          String    // OPENING, SALE, RETURN, CASH_IN, CASH_OUT, SAFE_DROP, BANK_DEPOSIT, ADJUSTMENT, CLOSING
+  referenceType String?   @map("reference_type")
+  referenceId   Int?      @map("reference_id")
+  remarks       String?   @db.Text
+  createdBy     Int?      @map("created_by")
+  creator       User?     @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@map("cash_movements")
 }
